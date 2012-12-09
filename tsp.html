@@ -17,6 +17,7 @@
   <!-- Algorithms -->
   <script src="greedy_salesman.js"></script>
   <script src="sequential_salesman.js"></script>
+  <script src="ant_salesman.js"></script>
   
 </head>
 <body>
@@ -68,13 +69,13 @@
     
     
     // Your implementation. Uncomment to see a demonstration:
-    /*
-    var your_salesman = new SequentialSalesman();  // <-- REPLACE ME
+    
+    var your_salesman = new AntSalesman();
     var your_plan = harness.run_algorithm(graph, start_point_id, your_salesman);
     your_score = harness.compute_plan_cost(graph, your_plan);
     window.setTimeout(function() {renderer.start_plan(your_plan, "player_two");}, 2500)
     console.log("*** YOUR Algorithm Total Distance: " + String(your_score));
-    */
+    
 
     
     // Congrats? 
