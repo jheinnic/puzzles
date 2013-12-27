@@ -9,7 +9,8 @@
   <script src="vendor/jquery.min.js"></script>
   <script src="vendor/d3.v2.js"></script>
   <script src="vendor/underscore.js"></script>
-  
+  <script src="vendor/heap.js"></script>
+
   <!-- Stuff to get the TSP working -->
   <script src="harness.js"></script>
   <script src="random_graph_builder.js"></script>
@@ -18,7 +19,8 @@
   <!-- Algorithms -->
   <script src="greedy_salesman.js"></script>
   <script src="sequential_salesman.js"></script>
-  
+  <script src="jch_salesman.js"></script>
+
 </head>
 <body>
 
@@ -53,7 +55,8 @@
     var graph = graph_builder.build_graph();
     var harness = new Harness();
     var start_point_id = "pt_0";
-    var your_score = 999999999;
+    var bad_score;
+    var your_score;
     var greedy_score = 999999999;
     
     
@@ -64,24 +67,37 @@
     // Our baseline implementation
     var greedy_salesman = new GreedySalesman()
     var greedy_plan = harness.run_algorithm(graph, start_point_id, greedy_salesman);
-    greedy_score = harness.compute_plan_cost(graph, greedy_plan);    
+    var greedy_score = harness.compute_plan_cost(graph, greedy_plan);
     window.setTimeout(function() {renderer.start_plan(greedy_plan, "player_one");}, 2500)
     console.log("*** Greedy Algorithm Total Distance: " + String(greedy_score));
-    
-    
+
+
     // Your implementation. Uncomment to see a demonstration:
-    /*
-    var your_salesman = new SequentialSalesman();  // <-- REPLACE ME
+    var your_salesman = new JCHSalesman();  // <-- REPLACE ME
     var your_plan = harness.run_algorithm(graph, start_point_id, your_salesman);
     your_score = harness.compute_plan_cost(graph, your_plan);
     window.setTimeout(function() {renderer.start_plan(your_plan, "player_two");}, 2500)
     console.log("*** YOUR Algorithm Total Distance: " + String(your_score));
-    */
 
     
-    // Congrats? 
+    // Their bad implementation. Uncomment to see a demonstration:
+    var bad_salesman = new SequentialSalesman();  // <-- REPLACE ME
+    var bad_plan = harness.run_algorithm(graph, start_point_id, bad_salesman);
+    bad_score = harness.compute_plan_cost(graph, bad_plan);
+    window.setTimeout(function() {renderer.start_plan(bad_plan, "player_three");}, 2500)
+    console.log("*** BAD Algorithm Total Distance: " + String(bad_score));
+
+    
+    // Congrats?
+    if( bad_score < greedy_score ) {
+      console.log("!!! There is nothing wrong with me...  Something is wrong with the universe!");
+    }
     if (your_score < greedy_score) {
       console.log("*** BOOM! Nice job. You defeated our implementation. You should email jobs@zillabyte.com RIGHT NOW.  A world of glory awaits you.");
+    } else if (your_score < bad_score) {
+      console.log("*** Consolation prize--you aren't worse than bad.");
+    } else {
+      console.log("*** Don't quit your day job.");
     }
     
     
