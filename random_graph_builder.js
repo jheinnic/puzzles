@@ -24,7 +24,7 @@ function RandomGraphBuilder() {
     // Init 
     this.graph = {
       'points': [],
-      'arcs': [],
+      'arcs': []
     }
     
     // First pass, just build some random points and random arcs...
@@ -33,7 +33,7 @@ function RandomGraphBuilder() {
     // Last pass, make sure everything is strongly connected
     this.connect_components();
     
-    // Finit 
+    // Fin
     return this.graph;
   }
   
@@ -46,7 +46,7 @@ function RandomGraphBuilder() {
       this.graph.points.push({
         "id": "pt_" + String(i),
         "x": Math.random() * MAX_X,
-        "y": Math.random() * MAX_Y,
+        "y": Math.random() * MAX_Y
       })
     }
     
@@ -57,16 +57,16 @@ function RandomGraphBuilder() {
       pt1 = "pt_" + Math.floor(Math.random() * NUM_POINTS);
       pt2 = "pt_" + Math.floor(Math.random() * NUM_POINTS);
       
-      // Dont have a self-looping arc... 
-      if (pt1 == pt2) continue;
+      // Don't have a self-looping arc...
+      if (pt1 == pt2) { i--; continue; }
       
       // Have we already seen an arc like this? 
       arc_id_forward = pt1 + "_" + pt2
-      if (used_arcs[arc_id_forward]) continue;
+      if (used_arcs[arc_id_forward]) { i--; continue; }
   
       // What about the other way around? 
       arc_id_backward = pt2 + "_" + pt1
-      if (used_arcs[arc_id_backward]) continue;
+      if (used_arcs[arc_id_backward]) { i--; continue; }
       
       // All checks pass, let's go ahead and add this arc
       this.graph.arcs.push([pt1, pt2])
@@ -136,7 +136,7 @@ function RandomGraphBuilder() {
       if (untouched_point) {
         
         // We have an untouched point... so let's go ahead and create an arc between this and a touched point.
-        // Note: this has the unruly sideeffect that all the components will be connected by the single 'first_point'.  Not ideal, but screw it. 
+        // Note: this has the unruly side-effect that all the components will be connected by the single 'first_point'.  Not ideal, but screw it.
         this.graph.arcs.push([first_point.id, untouched_point.id])
         
         // Now we have an arc between the 'visited' component and at least one other disjoint component.  We'll need to run 
