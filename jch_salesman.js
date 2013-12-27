@@ -18,9 +18,8 @@ function JCHSalesman( ) {
 
   this.has_edge_between = function has_edge_between(p1, p2) {
     return _(p1.adjacent_weights).any(function(p1Adj) {
-      // TODO: Reassure yourself that this is the correct identity test.
-      return( p1Adj.to.point.id == p2.point.id );
     });
+  });
   };
 
   this.init_graph = function init_graph( graph ) {
@@ -40,7 +39,13 @@ function JCHSalesman( ) {
       var p2 = self.get_point_by_id(a[1]);
       var dist_squared = self.get_dist_squared( p1.point, p2.point );
 
-      // TODO: Confirm a sparse hash is more efficient than a spare array.
+      // NOTE: An indexed representation, either as an object, with "to" vertex IDs as keys, or as a sparse array,
+      //       with each vertex assigned a unique index, were considered, but there seemed to be very little use for
+      //       indexed access of the metadata for a specific coordinate pair given both coordinates, only for complete
+      //       rows or columns of metadata, given a single coordinate.  AS such, a non-sparse array of unordered records
+      //       is used now instead.  There is one case near the end where indexed access would be useful.  Perhaps this
+      //       would be a fine reason to keep the edge lists in sorted order, enabling lookup by binary search--a
+      //       reasonable compromise between the relative importance and demands on space and time here.
       p1.adjacent_weights.push({ from: p1, to: p2, dist_squared: dist_squared });
       p2.adjacent_weights.push({ from: p2, to: p1, dist_squared: dist_squared });
     });
@@ -54,12 +59,14 @@ function JCHSalesman( ) {
     // Compute a minimal span tree
     this.compute_minimal_span_tree(start_point);
 
-    // Perform a DFS of the span tree to derive a cycle, shortcutting around back edges as much as possible.
-    // Follow all forward edges, but as an optimization, attempt to find shortcuts that avoid traversing back
-    // edges.
+    // Perform a DFS of the span tree to derive a cycle, and as a heuristic, attempt to replace all paths consisting
+    // of back edges with alternate routes that connect the same end points, but do so at reduced cost, perhaps even
+    // by a direct edge.
     var retVal = this.compute_derived_cycle(start_point);
-    console.debug( "Ready to return final result: " );
-    console.debug(retVal);
+
+    // console.debug('Computation result: ');
+    // console.debug(retVal);
+
     return retVal;
   };
 
@@ -77,17 +84,20 @@ function JCHSalesman( ) {
 
     // Iterate once per vertex that remains in the graph.  Each iteration will select the
     // least costly edge from the binary heap that connects an unconnected vertex to the spanning tree.
-    // add new adjacencies to disconnected vertices that it provides, and then continue.
     _(this.graph.points.length - 1).times( function() {
       var best_new_edge = candidate_edge_heap.pop();
       while( best_new_edge.to.in_span_tree == 1 ) {
         best_new_edge = candidate_edge_heap.pop();
       }
 
+      // Mark the chosen vertex as now attached to the minimum spanning tree and track the edge that connected
+      // it as part of the spanning tree under construction as well.
       var next_vertex = best_new_edge.to;
       best_new_edge.from.span_children.push(next_vertex);
       next_vertex.in_span_tree = 1;
 
+        // Load the binary heap with information about edges leading from the newly added vertex, candidate
+        // edges that are now reachable for inclusion through it.
       _(next_vertex.adjacent_weights).each(function(adjacency) {
         if( adjacency.to.in_span_tree == 0 ) {
           candidate_edge_heap.push(adjacency);
@@ -111,16 +121,14 @@ function JCHSalesman( ) {
   this.derived_cycle_recursion = function derived_cycle_recursion( cycle_path, back_step_path, from_vertex ) {
     back_step_path.push(from_vertex);
     cycle_path.push(from_vertex.point.id);
-    console.debug( "On entering recursive traversal method, using a forward edge to append " + from_vertex.point.id + " to derived cycle: " );
-    console.debug(cycle_path);
 
     var self = this;
     var children = from_vertex.span_children;
     // Do not step back to the from_vertex as recursion unwinds.  Instead, rely on logic that precedes each
-    // subsequent forward step and applies a heuristic to optimize unnecessary backsteps into shorter paths.
-    // The best optimization is a direct adjacency from the first vertex the tree traversal backsteps from that
+    // subsequent forward step and applies a heuristic to optimize unnecessary back-steps into shorter paths.
+    // The best optimization is a direct adjacency from the first vertex the tree traversal back-steps from that
     // lands where the next forward edge traversal will be heading.  The next best optimization is a shortest
-    // path through other nodes that still has an overall cost less than the original backstepping path.  If
+    // path through other nodes that still has an overall cost less than the original back-stepping path.  If
     // neither exists, we have to use the back-stepping path from the minimum spanning tree traversal as-is.
     if( children.length >= 1 ) {
       self.derived_cycle_recursion(cycle_path, back_step_path, _(children).first());
@@ -133,7 +141,7 @@ function JCHSalesman( ) {
       var origin = back_step_path.pop();
       if( origin != from_vertex ) {
         var current = origin;
-        var worst_case_path = [];
+        // var worst_case_path = [];
         var worst_case_cost = 0;
 
         while( current != from_vertex ) {
@@ -143,14 +151,19 @@ function JCHSalesman( ) {
 
           // Leverage Euclidean and undirected symmetries.  Weight(current->next) == Weight(next->current)
           // TODO: Because the adjacency lists are not indexed, presume that computing the squared distance is
-          //       cheaper than searching for the given adjacency.  Later, refactor so that each node describes its
-          //       spanning tree neighbors by listing the edges to those neighbors, not just the neighbor vertices,
-          //       because that way we can just re-use the edge-cached copy of dist_squared.
+          //       cheaper than searching for the given adjacency.
+          // TODO: Later, refactor so that each node describes its spanning tree neighbors by listing the edges
+          //       to those neighbors, not just the neighbor vertices, because that way we can just re-use the
+          //       edge-cached copy of dist_squared.
           worst_case_cost += self.get_dist_squared(current.point, next.point);
 
+          // NOTE: Only needed for debug messaging, but potentially worth knowing how to construct this
+          //       down the road, so leave it present by commented out.
           // Track the path back as we measure it so we know what it is if we find no shorter path from
           // the ancestor from which we made the first unaccounted back_step to the upcoming forward to_vertex
-          worst_case_path.push(next);
+          /*
+           * worst_case_path.push(next);
+           */
 
           // Advance the iteration, working back towards from_vertex.  The back_step path is populated by
           // appending to the right, so the partial reverse path is inferred by popping elements off the
@@ -158,12 +171,16 @@ function JCHSalesman( ) {
           current = next;
         }
 
+        // Add the cost to make the last step connecting from_vertex, the last vertex we've back-stepped into,
+        // with to_vertex, the un-visited one we wish to reach next, establishing the total cost plus overhead for
+        // taking the back-stepping route as-is.
         worst_case_cost += self.get_dist_squared(current.point, to_vertex.point);
-        console.debug(
-          "Optimizing a backward traversal path from " + origin.point.id +
-          " to " + to_vertex.point.id + " with maximum cost " + worst_case_cost +
-          " for partial back edge path: ");
-        console.debug(worst_case_path)
+
+        // console.debug(
+        //   "Optimizing a backward traversal path from " + origin.point.id +
+        //   " to " + to_vertex.point.id + " with maximum cost " + worst_case_cost +
+        //   " for partial back edge path: ");
+        // console.debug(worst_case_path)
 
         // The best case scenario would be a direct edge from origin to to_vertex.  The shortest distance
         // between any two points in a Euclidean plane is a straight line.  There may not be a direct
@@ -171,13 +188,10 @@ function JCHSalesman( ) {
         // other than the worst-case-scenario of reversing the original path from from_vertex to back_step
         // origin.
         if(self.has_edge_between(origin, to_vertex) == false) {
-          console.log( "No direct edge from " + origin.point.id + " to " + to_vertex.point.id + ".  Searching for a shortest path." );
           _(self.get_path_between(origin, to_vertex, worst_case_cost)).each(function(back_vertex) {
               cycle_path.push(back_vertex.point.id);
-              console.log( "During back_step handling, append BackVertex to cycle: " + back_vertex.point.id );
+              // console.log( "During back_step handling, append BackVertex to cycle: " + back_vertex.point.id );
           })
-        } else {
-          console.log("Found direct adjacency from " + origin.point.id + " to " + to_vertex.point.id + ".  Using it." );
         }
       }
 
@@ -233,9 +247,9 @@ function JCHSalesman( ) {
     // Prune the last element from the list to make it easier to generalize the visitation of end_point between
     // cases with the help of either a local a social worker or as an educated homeowner and consumer.
     var retVal = _.initial(closest_path);
-      console.debug( "Shortest path from " + start_point.point.id + " to " + end_point.point.id + " is through: " );
-      console.debug( retVal );
-      return retVal;
+    // console.debug( "Shortest path from " + start_point.point.id + " to " + end_point.point.id + " is through: " );
+    // console.debug( retVal );
+    return retVal;
   };
 
   return this;
