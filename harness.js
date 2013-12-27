@@ -76,7 +76,12 @@ function Harness() {
     var MAX_TIME = 10*1000;  // 10 seconds  (3 seconds is way too long, but some machines are slow.
                              // Bonus: blow us away with your solution and we'll get you a screaming
                              // fast machine. 
-    if (end_time - start_time > MAX_TIME) throw "Your algorithm took too long to run!";
+    var delta = end_time - start_time;
+    if (delta > MAX_TIME) throw "Your algorithm took " + delta + "ms, too long to run!";
+
+    console.log( "Algorithm took " + delta + "ms to run." );
+
+
     
     return plan
   }
