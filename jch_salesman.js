@@ -181,8 +181,8 @@ function JCHSalesman( ) {
           if (!visited[adj.to.point.id]) {
             dist_next = adj.dist_squared + this_dist;
             if( dist_next <= worst_case_cost ) {
-              this_path.push(adj.to.point.id);
-              visit_queue.push([adj.to, this_path, dist_next]);
+              var path_next = this_path.concat(adj.to.point.id);
+              visit_queue.push([adj.to, path_next, dist_next]);
             }
           }
         }); 
@@ -224,7 +224,7 @@ function JCHSalesman( ) {
 
         // Track the path back as we measure it so we know what it is if we find no shorter path from
         // the ancestor from which we made the first unaccounted back_step to the upcoming forward next_forward_vertex
-        worst_case_path.push(next);
+        worst_case_path.push(next.point.id);
 
         // Advance the iteration, working back towards last_back-step_vertex.  The back_step path is populated by
         // appending to the right, so the partial reverse path is inferred by popping elements off the
@@ -234,7 +234,7 @@ function JCHSalesman( ) {
 
       // Be sure to include the extra step from last_back-step_vertex to next_forward_vertex, otherwise the search for
       // a better shortest path may be under-state its cost tolerance and fail to find when it should find just fine.
-      worst_case_path.push(next_forward_vertex);
+      worst_case_path.push(next_forward_vertex.point.id);
       worst_case_cost += this.get_dist_squared(current.point, next_forward_vertex.point);
       console.debug(
         "Optimizing a backward traversal path from " + origin.point.id +
