@@ -116,7 +116,7 @@ function JCHSalesman( ) {
   };
 
   this.derived_cycle_recursion = function derived_cycle_recursion( cycle_path, back_step_path, from_vertex ) {
-    console.debug( "Entering recursive traversal method after appending " + from_vertex.point.id + ", a forward edge, to derive cycle: " );
+    console.debug( "Recursive traversal call on having appended a forward edge to vertex " + from_vertex.point.id + ":" );
     console.debug(cycle_path);
 
     var self = this;
@@ -152,55 +152,42 @@ function JCHSalesman( ) {
   this.get_path_between = function get_path_between( start_point, end_point, worst_case_cost ) {
     var self = this;
 
-    // Breadth First Search. 
-    // The 'visit_queue' consists of the current point, and a 'breadcrumb' path back to the start point.
-    var visit_queue = [[start_point, [], 0]];
-    var visited = {};
-    var closest_path = null;
-    var closest_dist = 10000000;
-    
-    // We're going to BFS for the end_point.  It's not guaranteed to be the shortest path.
-    // Is there a better way that is computationally fast enough?
-    while(visit_queue.length > 0) {
-      var a = visit_queue.shift();
-      var this_point = a[0];
-      var this_path = a[1];
-      var this_dist = a[2];
-      visited[this_point.point.id] = true;
-      
-      if (this_point.point.id == end_point.point.id) {
-        // We've arrived, return the breadcrumb path that took us here...
-        if (this_dist < closest_dist) {
-          closest_dist = this_dist;
-          closest_path = this_path;
-        }
-      } else {
-        // Otherwise, explore all the surrounding points...
-        new_points = this_point.adjacent_weights;
-        _(new_points).each(function(adj) {
-          if (!visited[adj.to.point.id]) {
-            dist_next = adj.dist_squared + this_dist;
-            if( dist_next <= worst_case_cost ) {
-              var path_next = this_path.concat(adj.to.point.id);
-              visit_queue.push([adj.to, path_next, dist_next]);
-            }
+    // Depth First Search.
+    var bestResult =
+      this.recursive_get_best_path( [ ], 0, start_point.adjacent_weights, end_point.point.id, worst_case_cost );
+
+    // The intermediate recursive calls need to communicate the cost of the best solution found to date,
+    // but the caller has only requested the solution itself, hence we can unwrap the first array element and
+    // discard the second.
+    return bestResult[0];
+  }
+
+
+  this.recursive_get_best_path = function recursive_get_best_path( root_path, root_cost, children, goal_id, max_cost ) {
+    var best_path = null;
+    var best_cost = max_cost;
+
+    _(children).forEach( function( next_adjacency ) {
+      var next_cost = root_cost + next_adjacency.dist_squared;
+      if( next_cost < best_cost ) {
+        var next_id = next_adjacency.to.point.id;
+        var next_path = root_path.concat(next_id);
+        if( goal_id == next_id ) {
+          best_path = next_path;
+          best_cost = next_cost;
+        } else {
+          var next_return = recursive_get_best_path(next_path, next_cost, next_adjacency.to.adjacent_weights, goal_id, best_cost);
+          if( next_return[1] < best_cost ) {
+            best_path = next_return[0];
+            best_cost = next_return[1];
           }
-        }); 
-      }  
-    }
+        }
+      }
+    });
+
+    return [best_path, best_cost];
+  }
     
-    // Otherwise, a path doesn't exist
-    if (closest_path == null) {
-     throw( "Could not compute path from *" + start_point.point.id + "* to *" + end_point.point.id + "*, but should have at least found original back-step path!" );
-    }
-
-    // Prune the last element from the list to make it easier to generalize the visitation of end_point between
-    // cases with the help of either a local a social worker or as an educated homeowner and consumer.
-    console.debug( "Shortest path from " + start_point.point.id + " to " + end_point.point.id + " is through: " );
-    console.debug( closest_path );
-    return closest_path;
-  };
-
   this.modify_back_segment = function(cycle_path, back_step_stack, last_back_step_vertex, next_forward_vertex) {
     // Before advancing a forward edge, check whether we need to account for back_steps from the spanning
     // tree's depth first traversal.  If we have had to step back, let the path from the deepest ancestor
@@ -213,8 +200,6 @@ function JCHSalesman( ) {
       var worst_case_cost = 0;
 
       while( current != last_back_step_vertex ) {
-        console.debug( "CurrentVertex, " + current.point.id + ", is not LastBackStepVertex, " + last_back_step_vertex.point.id );
-
         var next = back_step_stack.pop( );
 
         // Leverage Euclidean and undirected symmetries.  Weight(current->next) == Weight(next->current)
@@ -243,18 +228,20 @@ function JCHSalesman( ) {
       console.debug(worst_case_path);
 
       // The best case scenario would be a direct edge from origin to next_forward_vertex.  The shortest distance
-      // between any two points in a Euclidean plane is a straight line.  There may not be a direct
-      // adjacency, but even so there may be a shorter path from back_step origin to the next next_forward_vertex
+      // between any two points in a Euclidean plane is a straight line.  There may not be a direct adjacency, but
+      // there may still be a shorter path from back_step origin to the next next_forward_vertex
       // other than the worst-case-scenario of reversing the original path from last_back-step_vertex to back_step
       // origin.
       if(this.has_edge_between(origin, next_forward_vertex) == false) {
-        console.log( "No direct edge from " + origin.point.id + " to " + next_forward_vertex.point.id + ".  Searching for a shortest path." );
+        console.log(
+          "No direct adjacency from " + origin.point.id + " to " +
+          next_forward_vertex.point.id + " exists.  Verifying we have the best indirect path..."
+        );
         _(this.get_path_between(origin, next_forward_vertex, worst_case_cost)).each(function(path_vertex_id) {
-          console.log( "During back_step handling, append BackVertex to cycle: " + path_vertex_id );
           cycle_path.push(path_vertex_id);
         });
       } else {
-        console.log("Found direct adjacency from " + origin.point.id + " to " + next_forward_vertex.point.id + ".  Using it." );
+        console.log("Using direct adjacency from " + origin.point.id + " to " + next_forward_vertex.point.id + "." );
         cycle_path.push(next_forward_vertex.point.id);
       }
     }
