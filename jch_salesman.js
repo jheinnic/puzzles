@@ -8,10 +8,15 @@ function JCHSalesman( ) {
     return this.vertex_state_by_id[point_id];
   };
 
-  // For the sake of comparing distances, we can omit the square root because for any pair of distance
-  // metrics, m and n, dist-of-m < dist-of-n, implies that dist-of-m^2 < dist-of-n^2.
-  this.get_dist_squared = function get_dist_squared(point1, point2) {
-    return Math.pow(point2.x - point1.x, 2) + Math.pow(point2.y - point1.y, 2);
+  // For the sake of comparing distances, we could omit the square root because for any pair of distance
+  // metrics, m and n, dist-of-m < dist-of-n, implies that dist-of-m^2 < dist-of-n^2.  Unfortunately we have
+  // to also deal with path distances, and so need the true distance.  Consider a single edge of distance 10
+  // compared to a pair of edges that each have a distance of 6, for a total distance of 12.  The single edge
+  // is a shorter path, but 10^2 = 100 and (6^2) + (6^2) = 36 + 36 = 72, and since 72 < 100, a path distance
+  // calculated using the sum of distance square makes the two edge path appear shorter, when this is not in
+  // fact true.
+  this.get_dist = function get_dist(p1, p2) {
+    return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
   };
 
   this.has_edge_between = function has_edge_between(p1, p2) {
@@ -35,15 +40,15 @@ function JCHSalesman( ) {
     _(graph.arcs).each(function( a ) {
       var p1 = self.get_point_by_id(a[0]);
       var p2 = self.get_point_by_id(a[1]);
-      var dist_squared = self.get_dist_squared( p1.point, p2.point );
+      var dist = self.get_dist( p1.point, p2.point );
 
       // TODO: Confirm a sparse hash is more efficient than a spare array.
-      p1.adjacent_weights.push({ from: p1, to: p2, dist_squared: dist_squared });
-      p2.adjacent_weights.push({ from: p2, to: p1, dist_squared: dist_squared });
+      p1.adjacent_weights.push({ from: p1, to: p2, dist: dist });
+      p2.adjacent_weights.push({ from: p2, to: p1, dist: dist });
     });
 
     _(self.vertex_state_by_id).each( function(vertex) {
-      vertex.adjacent_weights = _(vertex.adjacent_weights).sortBy('dist_squared');
+      vertex.adjacent_weights = _(vertex.adjacent_weights).sortBy('dist');
     });
   };
   
@@ -65,15 +70,15 @@ function JCHSalesman( ) {
   };
 
   this.compute_minimal_span_tree = function compute_minimal_span_tree( start_point ) {
-    var candidate_edge_heap = new Heap(function(a, b) {
-      return a.dist_squared - b.dist_squared;
+    var candidate_edge_heap = new Heap(function compare_edges(e1, e2) {
+      return e1.dist - e2.dist;
     });
 
     // Prepare for Prim's minimum spanning tree algorithm.  Populate a binary heap with
     // adjacency information from the given root of the desired tree, start_point.
     start_point.in_span_tree = 1;
-    _(start_point.adjacent_weights).each(function(adjacency) {
-      candidate_edge_heap.push(adjacency);
+    _(start_point.adjacent_weights).each(function insert_edge(next_edge) {
+      candidate_edge_heap.push(next_edge);
     });
 
     // Iterate once per vertex that remains in the graph.  Each iteration will select the
@@ -89,9 +94,9 @@ function JCHSalesman( ) {
       best_new_edge.from.span_children.push(next_vertex);
       next_vertex.in_span_tree = 1;
 
-      _(next_vertex.adjacent_weights).each(function(adjacency) {
-        if( adjacency.to.in_span_tree == 0 ) {
-          candidate_edge_heap.push(adjacency);
+      _(next_vertex.adjacent_weights).each(function insert_edge_if_vertex_not_linked(next_edge) {
+        if( next_edge.to.in_span_tree == 0 ) {
+          candidate_edge_heap.push(next_edge);
         }
       });
     })
@@ -165,8 +170,8 @@ function JCHSalesman( ) {
       }
 
       search_context.visited[next_edge.to.point.id] =
-        new VertexContext( next_edge, next_edge.dist_squared );
-      self.recursive_get_best_path( next_edge, next_edge.dist_squared, search_context );
+        new VertexContext( next_edge, next_edge.dist );
+      self.recursive_get_best_path( next_edge, next_edge.dist, search_context );
     });
     search_context.clear_in_use(start_point);
 
@@ -199,7 +204,7 @@ function JCHSalesman( ) {
 
       // Vertices are sorted in from least to most distant.  Abort the search here if its distance would put us in
       // range of paths that exceed the maximum distance threshold.
-      var next_dist = current_dist + next_edge_out.dist_squared;
+      var next_dist = current_dist + next_edge_out.dist;
       if( next_dist > search_context.max_dist ) { return true; }
 
       var vertex_context = search_context.visited[next_edge_out.to.point.id];
@@ -240,7 +245,7 @@ function JCHSalesman( ) {
         // Leverage Euclidean and undirected symmetries.  Weight(current->next) == Weight(next->current)
         // TODO: Refactor later to track the tree structure using Adjacency objects so we need not recalculate the
         //       distance squared cost factors here.
-        worst_case_cost += this.get_dist_squared(current.point, next.point);
+        worst_case_cost += this.get_dist(current.point, next.point);
 
         // Track the path back as we measure it so we know what it is if we find no shorter path from
         // the ancestor from which we made the first unaccounted back_step to the upcoming forward next_forward_vertex
@@ -255,7 +260,7 @@ function JCHSalesman( ) {
       // Be sure to include the extra step from last_back-step_vertex to next_forward_vertex, otherwise the search for
       // a better shortest path may be under-state its cost tolerance and fail to find when it should find just fine.
       worst_case_path.push(next_forward_vertex.point.id);
-      worst_case_cost += this.get_dist_squared(current.point, next_forward_vertex.point);
+      worst_case_cost += this.get_dist(current.point, next_forward_vertex.point);
       console.debug(
         "Optimizing a backward traversal path from " + origin.point.id +
         " to " + next_forward_vertex.point.id + " with maximum cost " + worst_case_cost +
