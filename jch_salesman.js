@@ -89,11 +89,11 @@ function JCHSalesman( ) {
     var return_cycle = [start_point.get_id()];
     var back_step_stack = [];
 
-    console.group();
+//    console.group();
     this.derived_cycle_recursion(return_cycle, back_step_stack, start_point);
-    console.debug(return_cycle);
-    console.groupEnd();
-    console.group();
+//    console.debug(return_cycle);
+//    console.groupEnd();
+//    console.group();
 
     // It's necessary to close the loop now.  Check the top of back_step_stack for the identity of the last uniquely
     // visited vertex.  Use the same logic applied by
@@ -104,31 +104,31 @@ function JCHSalesman( ) {
           return distance + frame.get_distance();
         }, 0
       );
-
-      console.debug(
-        "Calculating a final return path home from " + initial_frame.get_to_id() +
-        " with a maximum distance of " + worst_case_distance + "..."
-      );
+//
+//      console.debug(
+//        "Calculating a final return path home from " + initial_frame.get_to_id() +
+//        " with a maximum distance of " + worst_case_distance + "..."
+//      );
       var return_path = new MinDistancePathSearch(initial_frame.get_to(), start_point, worst_case_distance);
       _(return_path.get_result()).each(function(path_vertex_id) {
         return_cycle.push(path_vertex_id);
       });
     } else {
       return_cycle.push( start_point.get_id() );
-      console.debug("Returning from a state that coincidentally requires no back-step edges to return home.");
+//      console.debug("Returning from a state that coincidentally requires no back-step edges to return home.");
     }
-
-    console.debug("Final computed cycle is:");
-    console.debug(return_cycle);
-    console.groupEnd();
+//
+//    console.debug("Final computed cycle is:");
+//    console.debug(return_cycle);
+//    console.groupEnd();
 
     return return_cycle;
   };
 
   this.derived_cycle_recursion = function derived_cycle_recursion( cycle_path, back_step_stack, from_vertex ) {
     var self = this;
-    console.debug("Recursion for forward edge to " + from_vertex.get_id() + ":");
-
+//    console.debug("Recursion for forward edge to " + from_vertex.get_id() + ":");
+//
     var children = from_vertex.span_children;
 
     // Do not step back to the from_vertex as recursion unwinds.  Instead, rely on logic that precedes each
@@ -156,16 +156,16 @@ function JCHSalesman( ) {
   };
 
   this.modify_back_segment = function modify_back_segment(cycle_path, back_step_stack, last_back_step_to, forward_edge) {
-    // Close out the preceding run of recursive appends.
-    console.debug(cycle_path);
-    console.groupEnd();
-
+//    // Close out the preceding run of recursive appends.
+//    console.debug(cycle_path);
+//    console.groupEnd();
+//
     // Before advancing a forward edge, check whether we need to account for back_steps from the spanning
     // tree's depth first traversal.  If we have had to step back, let the path from the deepest ancestor
     // to this call stack frame's last_back-step_vertex, to this call stack frame's for loop's upcoming
     // to_vertex represent a worst-case boundary and search for a
     var origin = back_step_stack[back_step_stack.length - 1];
-    var worst_case_path = [];
+//    var worst_case_path = [];
     var worst_case_dist = 0;
     var current;
 
@@ -178,24 +178,24 @@ function JCHSalesman( ) {
       // consider, before pruning traversal paths, calculate the distance of the path used to backtrace through
       // a search of the original minimum distance spanning tree.
       worst_case_dist += current.get_distance();
-
-      // Track the path back as we measure it so we can report on it in debug messages.
-      worst_case_path.push(current.get_from_id());
+//
+//      // Track the path back as we measure it so we can report on it in debug messages.
+//      worst_case_path.push(current.get_from_id());
     } while( current.get_from() != last_back_step_to );
 
     // In addition to the path element through unwinding stack frames, we need to append a path element for the
-    // next forward step.  That extra destination is necessary to define the optimization scope--we're looking for
-    // a better alternative to N back steps and one forward step.
-    worst_case_path.push(forward_edge.get_to_id());
+    // next forward step.  That extra destination is necessary to define the optimization scope--we're looking
+    // for a better alternative to N back steps and one forward step.
+//    worst_case_path.push(forward_edge.get_to_id());
     worst_case_dist += forward_edge.get_distance();
-
-    // Wrap a group around the debug information for the back-step path and its consolidation.
-    console.group();
-    console.debug(
-      "Optimizing back-step path from " + origin.get_to_id() +
-      " to " + forward_edge.get_to_id() +
-      " with distance of " + worst_case_dist + " units and initial content:" );
-    console.debug(worst_case_path);
+//
+//    // Wrap a group around the debug information for the back-step path and its consolidation.
+//    console.group();
+//    console.debug(
+//      "Optimizing back-step path from " + origin.get_to_id() +
+//      " to " + forward_edge.get_to_id() +
+//      " with distance of " + worst_case_dist + " units and initial content:" );
+//    console.debug(worst_case_path);
 
     // The best case scenario would be a direct edge from origin to to_vertex.  The shortest distance
     // between any two points in a Euclidean plane is a straight line.  There may not be a direct adjacency,
@@ -205,11 +205,11 @@ function JCHSalesman( ) {
     _(search_context.get_result()).each(function(path_vertex_id) {
       cycle_path.push(path_vertex_id);
     });
-
-    console.debug( "...such that the cycle being computed has now grown to:" );
-    console.debug(cycle_path);
-    console.groupEnd();
-    console.group();
+//
+//    console.debug( "...such that the cycle being computed has now grown to:" );
+//    console.debug(cycle_path);
+//    console.groupEnd();
+//    console.group();
   };
 
   return this;
@@ -341,7 +341,6 @@ function MinDistancePathSearch(start_vertex, end_vertex, worst_case_dist) {
   // This implementation is not considering the possibility that no path is found because we only
   // use this search to optimize a path of back-edges in a minimum spanning tree embedded in the
   // original graph.  In the degenerate case, we will at least find the same path of back edges.
-
   this.get_result = function get_result() {
     var return_path = [];
 
@@ -354,17 +353,19 @@ function MinDistancePathSearch(start_vertex, end_vertex, worst_case_dist) {
     }
 
     return_path.reverse();
-    console.debug("...and found this path with a minimum distance of " + this.max_dist + ":");
-    console.debug(return_path);
+//    console.debug("...and found this path with a minimum distance of " + this.max_dist + ":");
+//    console.debug(return_path);
     return return_path;
   };
 
   return this;
 }
 
-//
-//  Vertex model for Prim's minimum spanning tree algorithm
 function VertexContext( p ) {
+  //
+  // A vertex model with additions supporting Prim's minimum spanning tree algorithm
+  //
+
   // Invariant graph spatial information.
   this.id = p.id;
   this.x = p.x;
