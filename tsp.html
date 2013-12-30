@@ -84,7 +84,7 @@
     var bad_salesman = new SequentialSalesman();  // <-- REPLACE ME
     var bad_plan = harness.run_algorithm(graph, start_point_id, bad_salesman);
     bad_score = harness.compute_plan_cost(graph, bad_plan);
-    window.setTimeout(function() {renderer.start_plan(bad_plan, "player_three");}, 2500)
+    // window.setTimeout(function() {renderer.start_plan(bad_plan, "player_three");}, 2500)
     console.log("*** BAD Algorithm Total Distance: " + String(bad_score));
 
     
