@@ -89,15 +89,17 @@ function JCHSalesman( ) {
   // approximation and does not guarantee a perfectly optimal result.
   this.compute_derived_cycle = function compute_derived_cycle( start_point ) {
     var return_cycle = [start_point.get_id()];
-    var back_step_path = [];
+    var back_step_stack = [];
 
     console.group();
-    this.derived_cycle_recursion(return_cycle, back_step_path, start_point);
+    this.derived_cycle_recursion(return_cycle, back_step_stack, start_point);
 
-    // It's necessary to close the loop now.  Check the top of back_step_path for the identity of the last uniquely
+    // It's necessary to close the loop now.  Check the top of back_step_stack for the identity of the last uniquely
     // visited vertex.  Use the same logic applied by
-    if( back_step_path.length > 0 ) {
-      this.modify_back_segment(return_cycle, back_step_path, back_step_path[0], start_point);
+    if( back_step_stack.length > 0 ) {
+      console.debug("Pre Back step stack is:");
+      console.debug(_(back_step_stack).map(function(x) { return x; }));
+      this.modify_back_segment(return_cycle, back_step_stack, back_step_stack[0], start_point);
     } else {
       return_cycle.push( start_point.get_id() );
 
@@ -111,10 +113,12 @@ function JCHSalesman( ) {
     console.debug(return_cycle);
     console.groupEnd();
 
+    console.debug("Post Back step stack is:");
+    console.debug(_(back_step_stack).map(function(x) { return x; }));
     return return_cycle;
   };
 
-  this.derived_cycle_recursion = function derived_cycle_recursion( cycle_path, back_step_path, from_vertex ) {
+  this.derived_cycle_recursion = function derived_cycle_recursion( cycle_path, back_step_stack, from_vertex ) {
     var self = this;
     console.debug("Recursion for forward edge to " + from_vertex.get_id() + ":");
 
@@ -126,19 +130,19 @@ function JCHSalesman( ) {
     // lands where the next forward edge traversal will be heading.  The next best optimization is a shortest
     // path through other nodes that still has an overall cost less than the original back-stepping path.  If
     // neither exists, we have to use the back-stepping path from the minimum spanning tree traversal as-is.
-    back_step_path.push(from_vertex);
+    back_step_stack.push(from_vertex);
     if( children.length >= 1 ) {
       // The first child never requires handling back-stepped paths as its recursive call is the first.
-      var first_child = _(children).first();
-      cycle_path.push(first_child.get_id());
-      self.derived_cycle_recursion(cycle_path, back_step_path, first_child);
+      var first_child_edge = _(children).first();
+      cycle_path.push(first_child_edge.get_to_id());
+      self.derived_cycle_recursion(cycle_path, back_step_stack, first_child_edge.get_to());
 
       // Subsequent children
-      _.chain(children).rest().each(function(to_vertex) {
+      _.chain(children).rest().each(function(next_child_edge) {
         // Get a path that accounts for any back-stepping from the previous child and
         // visit the next one (to_vertex).
-        self.modify_back_segment(cycle_path, back_step_path, from_vertex, to_vertex);
-        self.derived_cycle_recursion(cycle_path, back_step_path, to_vertex);
+        self.modify_back_segment(cycle_path, back_step_stack, from_vertex, next_child_edge.get_to());
+        self.derived_cycle_recursion(cycle_path, back_step_stack, next_child_edge.get_to());
       });
     }
   };
@@ -146,6 +150,7 @@ function JCHSalesman( ) {
   this.modify_back_segment = function modify_back_segment(cycle_path, back_step_stack, from_vertex, to_vertex) {
     // Close out the preceding run of recursive appends.
     console.debug(cycle_path);
+    console.debug(_(back_step_stack).map(function(x) { return x; }));
     console.groupEnd();
 
     // Before advancing a forward edge, check whether we need to account for back_steps from the spanning
@@ -200,6 +205,7 @@ function JCHSalesman( ) {
 
       console.debug( "...such that the cycle being computed has now grown to:" );
       console.debug(cycle_path);
+      console.debug(_(back_step_stack).map(function(x) { return x; }));
       console.groupEnd();
     }
 
@@ -441,7 +447,7 @@ function EdgeContext( p1, p2, dist ) {
   };
 
   this.add_to_min_span_tree = function add_to_min_span_tree(candidate_edge_heap) {
-    this.from.span_children.push(this.to);
+    this.from.span_children.push(this);
     this.to.span_parent = this.from;
 
     this.to.each_neighbor_until(function insert_edge_if_vertex_not_linked(next_edge) {
